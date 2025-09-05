@@ -14,6 +14,10 @@ h1 {
   color: #333;
 }
 
+#pseudo-input{
+    padding: 10px;
+}
+
 #messages {
     list-style-type: none;
     padding: 0;
