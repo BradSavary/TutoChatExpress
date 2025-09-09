@@ -9,7 +9,7 @@
 <body>
   <h1>💬 Chat Simple</h1>
   <form id="pseudo-form" autocomplete="off">
-    <input id="pseudo-input" placeholder="Entrez votre pseudo..." maxlength="20" required />
+    <input id="pseudo-input" placeholder="Entrez votre pseudo..." maxlength="20" name="pseudo" required />
     <button type="submit">Valider</button>
   </form>
   <div id="chat-container" style="display:none;">
@@ -21,7 +21,7 @@
       {% endif %}
     </ul>
     <form id="form" autocomplete="off">
-      <input id="input" autocomplete="off" placeholder="Votre message..." />
+      <input id="input" autocomplete="off" name="message" placeholder="Votre message..." />
       <button type="submit">Envoyer</button>
     </form>
   </div>
