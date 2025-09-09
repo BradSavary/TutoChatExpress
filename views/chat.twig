@@ -8,11 +8,20 @@
 </head>
 <body>
   <h1>Chat Simple</h1>
-  <form id="pseudo-form" autocomplete="off">
-    <input id="pseudo-input" placeholder="Entrez votre pseudo..." maxlength="20" name="pseudo" required />
-    <button type="submit">Valider</button>
-  </form>
-  <div id="chat-container" style="display:none;">
+  {% if not isAuthenticated %}
+    <form id="login-form" autocomplete="off" method="POST">
+      <input id="login-pseudo" name="pseudo" placeholder="Pseudo" maxlength="20" required />
+      <input id="login-password" name="password" type="password" placeholder="Mot de passe" required />
+      <button type="submit">Connexion</button>
+      <div id="login-error" style="color:red; margin-top:8px;"></div>
+    </form>
+    <div id="chat-container" style="display:none;">
+  {% else %}
+    <form id="logout-form" action="/logout" method="get" style="text-align:right; margin-bottom:10px;">
+      <button type="submit">Déconnexion</button>
+    </form>
+    <div id="chat-container">
+  {% endif %}
     <ul id="messages">
       {% if messages %}
         {% for msg in messages %}
