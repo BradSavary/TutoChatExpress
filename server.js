@@ -8,6 +8,7 @@ import { Server } from 'socket.io';
 import twig from 'twig';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import session from 'express-session';
 import prisma from './prisma/client.js';
 
 
@@ -17,6 +18,16 @@ const __dirname = dirname(__filename);
 
 // Création de l'application Express
 const app = express();
+// Session
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'devsecret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false }
+}));
+// Parsing
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 // Création d'un serveur HTTP basé sur l'application Express
 const server = http.createServer(app);
 // Création d'une instance de Socket.IO attachée au serveur HTTP
@@ -29,14 +40,58 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'twig');
 
-// Définition de la route principale
+// Route principale : affiche le chat si connecté, sinon le formulaire de connexion
 app.get('/', async (req, res) => {
-  // Récupère les 50 derniers messages (ordre chronologique)
-  const messages = await prisma.message.findMany({
-    orderBy: { createdAt: 'asc' },
-    take: 50
+  if (req.session.userId) {
+    const messages = await prisma.message.findMany({
+      orderBy: { createdAt: 'asc' },
+      take: 50
+    });
+    res.render('chat', { messages, isAuthenticated: true });
+  } else {
+    res.render('chat', { messages: null, isAuthenticated: false });
+  }
+});
+
+// Route POST /login
+app.post('/login', async (req, res) => {
+  try {
+    const { pseudo, password } = req.body;
+    if (!pseudo || !password) {
+      return res.status(400).json({ error: 'Veuillez remplir tous les champs.' });
+    }
+    const user = await prisma.user.findUnique({ where: { pseudo } });
+    if (!user) {
+      return res.status(401).json({ error: 'Pseudo inconnu.' });
+    }
+    if (user.password !== password) {
+      return res.status(401).json({ error: 'Mot de passe incorrect.' });
+    }
+    if (!user.isActive) {
+      return res.status(403).json({ error: 'Utilisateur inactif.' });
+    }
+    req.session.userId = user.id;
+    req.session.pseudo = user.pseudo;
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur, veuillez réessayer.' });
+  }
+});
+
+// Route GET /logout
+app.get('/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.redirect('/');
   });
-  res.render('chat', { messages });
+});
+
+// Route GET /me (pour récupérer le pseudo côté client)
+app.get('/me', (req, res) => {
+  if (req.session && req.session.pseudo) {
+    res.json({ pseudo: req.session.pseudo });
+  } else {
+    res.json({});
+  }
 });
 
 // Gestion des connexions Socket.IO
@@ -50,6 +105,9 @@ io.on('connection', async (socket) => {
 
   // Nouveau message reçu
   socket.on('chat message', async (data) => {
+    // Vérifie que le pseudo existe côté User
+    const user = await prisma.user.findUnique({ where: { pseudo: data.pseudo } });
+    if (!user) return;
     // Stocke le message en base
     const saved = await prisma.message.create({
       data: {
