@@ -9,6 +9,7 @@ import twig from 'twig';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import session from 'express-session';
+import cors from 'cors';
 import prisma from './prisma/client.js';
 
 
@@ -16,22 +17,44 @@ import prisma from './prisma/client.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const FRONT_URL = process.env.FRONT_URL || 'http://localhost:3000';
 // Création de l'application Express
 const app = express();
+// Trust proxy pour cookies secure derrière un proxy (ex: Heroku, Render, etc.)
+app.set('trust proxy', 1);
+
+// CORS configuration
+app.use(cors({
+  origin: FRONT_URL,
+  credentials: true,
+}));
+
 // Session
+const isProduction = FRONT_URL.startsWith('https://');
 app.use(session({
   secret: process.env.SESSION_SECRET || 'devsecret',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false }
+  cookie: {
+    secure: isProduction, // true si FRONT_URL est https
+    sameSite: isProduction ? 'none' : 'lax',
+    domain: undefined, // à adapter si besoin
+  }
 }));
+
 // Parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
 // Création d'un serveur HTTP basé sur l'application Express
 const server = http.createServer(app);
 // Création d'une instance de Socket.IO attachée au serveur HTTP
-const io = new Server(server);
+const io = new Server(server, {
+  cors: {
+    origin: FRONT_URL,
+    credentials: true,
+  }
+});
 
 // Configuration du dossier public pour les fichiers statiques (CSS, JS, images, etc.)
 app.use(express.static(path.join(__dirname, 'public')));
