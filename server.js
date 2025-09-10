@@ -11,7 +11,8 @@ import { dirname } from 'path';
 import session from 'express-session';
 import cors from 'cors';
 import prisma from './prisma/client.js';
-
+import { sendValidationEmail } from './mailer.js';
+import crypto from 'crypto';
 
 // Gestion de __dirname avec ES Modules
 const __filename = fileURLToPath(import.meta.url);
@@ -81,6 +82,8 @@ app.get('/register', (req, res) => {
   res.render('register');
 });
 
+const validationTokens = {};
+
 // Route POST /register : traite l'inscription
 import bcrypt from 'bcrypt';
 app.post('/register', async (req, res) => {
@@ -89,7 +92,6 @@ app.post('/register', async (req, res) => {
     if (!pseudo || !email || !password) {
       return res.status(400).send('Veuillez remplir tous les champs.');
     }
-    // Vérifie si le pseudo ou l'email existe déjà
     const existingUser = await prisma.user.findFirst({
       where: {
         OR: [
@@ -101,24 +103,37 @@ app.post('/register', async (req, res) => {
     if (existingUser) {
       return res.status(409).send('Pseudo ou email déjà utilisé.');
     }
-    // Hash du mot de passe
     const hashedPassword = await bcrypt.hash(password, 10);
-    // Création de l'utilisateur
     const user = await prisma.user.create({
       data: {
         pseudo,
         email,
         password: hashedPassword,
-        isActive: true
+        isActive: false
       }
     });
-    req.session.userId = user.id;
-    req.session.pseudo = user.pseudo;
-    res.redirect('/');
+    const token = crypto.randomBytes(32).toString('hex');
+    validationTokens[token] = user.id;
+    await sendValidationEmail(email, token);
+    res.status(201).send('Inscription réussie ! Vérifiez votre email pour valider votre compte.');
   } catch (err) {
     console.error('Erreur dans /register:', err);
     res.status(500).send('Erreur serveur, veuillez réessayer.');
   }
+});
+
+app.get('/validate/:token', async (req, res) => {
+  const { token } = req.params;
+  const userId = validationTokens[token];
+  if (!userId) {
+    return res.status(400).send('Lien de validation invalide ou expiré.');
+  }
+  await prisma.user.update({
+    where: { id: userId },
+    data: { isActive: true }
+  });
+  delete validationTokens[token];
+  res.send('Votre compte a été validé avec succès ! <a href="/">Cliquez ici pour vous connecter</a>');
 });
 
 // Route POST /login
