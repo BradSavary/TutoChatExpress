@@ -147,6 +147,8 @@ io.on('connection', async (socket) => {
   });
 });
 
+// Log temporaire pour diagnostic Render
+console.log('PORT Render:', process.env.PORT);
 // Définition du port d'écoute (3000 par défaut ou celui défini dans les variables d'environnement)
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
