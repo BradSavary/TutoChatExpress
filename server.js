@@ -97,6 +97,7 @@ app.post('/login', async (req, res) => {
     req.session.pseudo = user.pseudo;
     res.json({ success: true });
   } catch (err) {
+    console.error('Erreur dans /login:', err);
     res.status(500).json({ error: 'Erreur serveur, veuillez réessayer.' });
   }
 });
