@@ -15,11 +15,15 @@
       <button type="submit">Connexion</button>
       <div id="login-error" style="color:red; margin-top:8px;"></div>
     </form>
+    <div style="margin:10px 0;">
+      <a href="/register">Créer un compte</a>
+    </div>
     <div id="chat-container" style="display:none;">
   {% else %}
     <form id="logout-form" action="/logout" method="get" style="text-align:right; margin-bottom:10px;">
       <button type="submit">Déconnexion</button>
     </form>
+    <div style="margin-bottom:10px; color:#333;">Vous êtes connecté en tant que : <strong>{{ user.pseudo }}</strong></div>
     <div id="chat-container">
   {% endif %}
     <ul id="messages">
