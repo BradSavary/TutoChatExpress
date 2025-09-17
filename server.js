@@ -11,7 +11,8 @@ import { dirname } from 'path';
 import session from 'express-session';
 import cors from 'cors';
 import prisma from './prisma/client.js';
-
+import { sendValidationEmail } from './mailer.js';
+import crypto from 'crypto';
 
 // Gestion de __dirname avec ES Modules
 const __filename = fileURLToPath(import.meta.url);
@@ -70,10 +71,69 @@ app.get('/', async (req, res) => {
       orderBy: { createdAt: 'asc' },
       take: 50
     });
-    res.render('chat', { messages, isAuthenticated: true });
+    res.render('chat', { messages, isAuthenticated: true, user: { pseudo: req.session.pseudo } });
   } else {
-    res.render('chat', { messages: null, isAuthenticated: false });
+    res.render('chat', { messages: null, isAuthenticated: false, user: null });
   }
+});
+
+// Route GET /register : affiche le formulaire d'inscription
+app.get('/register', (req, res) => {
+  res.render('register');
+});
+
+const validationTokens = {};
+
+// Route POST /register : traite l'inscription
+import bcrypt from 'bcrypt';
+app.post('/register', async (req, res) => {
+  try {
+    const { pseudo, email, password } = req.body;
+    if (!pseudo || !email || !password) {
+      return res.status(400).send('Veuillez remplir tous les champs.');
+    }
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { pseudo },
+          { email }
+        ]
+      }
+    });
+    if (existingUser) {
+      return res.status(409).send('Pseudo ou email déjà utilisé.');
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await prisma.user.create({
+      data: {
+        pseudo,
+        email,
+        password: hashedPassword,
+        isActive: false
+      }
+    });
+    const token = crypto.randomBytes(32).toString('hex');
+    validationTokens[token] = user.id;
+    await sendValidationEmail(email, token);
+    res.status(201).send('Inscription réussie ! Vérifiez votre email pour valider votre compte.');
+  } catch (err) {
+    console.error('Erreur dans /register:', err);
+    res.status(500).send('Erreur serveur, veuillez réessayer.');
+  }
+});
+
+app.get('/validate/:token', async (req, res) => {
+  const { token } = req.params;
+  const userId = validationTokens[token];
+  if (!userId) {
+    return res.status(400).send('Lien de validation invalide ou expiré.');
+  }
+  await prisma.user.update({
+    where: { id: userId },
+    data: { isActive: true }
+  });
+  delete validationTokens[token];
+  res.send('Votre compte a été validé avec succès ! <a href="/">Cliquez ici pour vous connecter</a>');
 });
 
 // Route POST /login
@@ -87,7 +147,9 @@ app.post('/login', async (req, res) => {
     if (!user) {
       return res.status(401).json({ error: 'Pseudo inconnu.' });
     }
-    if (user.password !== password) {
+    // Vérification du mot de passe hashé
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) {
       return res.status(401).json({ error: 'Mot de passe incorrect.' });
     }
     if (!user.isActive) {
