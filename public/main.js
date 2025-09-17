@@ -3,6 +3,9 @@
 let pseudo = '';
 const socket = io();
 
+// Exposer le pseudo dans l'objet window pour les tests
+window.pseudo = pseudo;
+
 const loginForm = document.getElementById('login-form');
 const loginPseudo = document.getElementById('login-pseudo');
 const loginPassword = document.getElementById('login-password');
@@ -62,7 +65,11 @@ socket.on('chat history', function(history) {
   messages.scrollTop = messages.scrollHeight;
   // Récupère le pseudo de session côté client (pour l'envoi de messages)
   fetch('/me').then(r => r.json()).then(data => {
-    if (data.pseudo) pseudo = data.pseudo;
+    if (data.pseudo) {
+      pseudo = data.pseudo;
+      window.pseudo = pseudo; // Exposer pour les tests
+      console.log('Pseudo chargé:', pseudo);
+    }
   });
 });
 

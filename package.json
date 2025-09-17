@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:unit": "jest --testPathPattern=tests --testPathIgnorePatterns=e2e"
   },
   "repository": {
     "type": "git",
@@ -20,9 +23,11 @@
   "type": "module",
   "dependencies": {
     "@prisma/client": "^6.15.0",
+    "bcrypt": "^6.0.0",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "express-session": "^1.18.2",
+    "nodemailer": "^7.0.6",
     "prisma": "^6.15.0",
     "socket.io": "^4.8.1",
     "twig": "^1.17.1"
